@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script>
+      document.documentElement.style.fontSize =
+        document.documentElement.clientWidth / 37.5 + "px";
+    </script>
+    <style>
+      body {
+        margin: 0;
+      }
+      div {
+        display: flex;
+        flex-direction: column;
+      }
+      .blank-cell-group,
+      .char-cell-group {
+        width: 100%;
+        flex-direction: row;
+      }
+
+      .char-cell-group {
+        flex-wrap: wrap;
+        margin-top: 5rem;
+      }
+      .blank-cell-group .cell-item,
+      .char-cell-group .cell-item {
+        width: 25%;
+        height: 25vw;
+        padding: 0.5rem;
+        box-sizing: border-box;
+      }
+
+      .blank-cell-group .cell-item .wrapper,
+      .char-cell-group .cell-item .wrapper {
+        width: 100%;
+        height: 100%;
+        border: 0.1rem solid #ddd;
+        box-sizing: border-box;
+      }
+
+      .char-cell-group .cell-item .wrapper {
+        border: none;
+        background-color: orange;
+        font-size: 3rem;
+        justify-content: center;
+        align-items: center;
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="container">
+        <div class="blank-cell-group">
+          <!-- 在cell-item中再设置wrapper,通过设置wrapper的padding,border,就可以让每个盒子之间又兼具 -->
+          <div class="cell-item">
+            <div class="wrapper"></div>
+          </div>
+          <div class="cell-item">
+            <div class="wrapper"></div>
+          </div>
+          <div class="cell-item">
+            <div class="wrapper"></div>
+          </div>
+          <div class="cell-item">
+            <div class="wrapper"></div>
+          </div>
+        </div>
+
+        <div class="char-cell-group"></div>
+      </div>
+    </div>
+
+    <script>
+      (() => {
+        const idioms = ["诗情画意", "南来北往", "一团和气", "落花流水"],
+          oCharCellGroup = document.querySelector(".char-cell-group"),
+          oBlanks = document.querySelectorAll(".blank-cell-group .wrapper");
+
+        let charCollection = [],
+          charAreas = [],
+          blackAreas = [],
+          resArr = [],
+          oChars = null,
+          startX = 0, // 当前鼠标位置，需要保存在外面，因为touchmove函数需要使用
+          startY = 0,
+          cellX = 0, // 盒子距离左边的距离
+          cellY = 0,
+          mouseX = 0, // 盒子边框距离鼠标的距离
+          mouseY = 0;
+
+        // 当前鼠标的位置
+
+        const init = () => {
+          charCollection = formatCharsArr();
+          render();
+          // render 之后才有 dom 元素，所以要在 render 之后进行绑定
+          oChars = oCharCellGroup.querySelectorAll(".cell-item .wrapper");
+          getAreas(oBlanks, blackAreas);
+          getAreas(oChars, charAreas);
+          bindEvents();
+        };
+
+        const render = () => {
+          let list = "";
+          charCollection.forEach((char, index) => {
+            list += charCellTpl(char, index);
+          });
+          oCharCellGroup.innerHTML = list;
+        };
+
+        // 第一步：绑定事件
+        const bindEvents = () => {
+          let oChar = null;
+          for (let i = 0; i < oChars.length; i++) {
+            oChar = oChars[i];
+            oChar.addEventListener("touchstart", handleTouchStart, false);
+            oChar.addEventListener("touchmove", handleTouchMove, false);
+            oChar.addEventListener("touchend", handleTouchEnd, false);
+          }
+        };
+
+        function handleTouchStart(e) {
+          cellW = this.offsetWidth;
+          cellH = this.offsetHeight;
+          cellX = this.offsetLeft;
+          cellY = this.offsetTop;
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+          mouseX = startX - cellX; // 距离是不变的
+          mouseY = startY - cellY;
+
+          // 初始时设置 固定定位，即刚点上去的时候，设置固定定位 
+          this.style.position = "fixed";
+          this.style.width = cellW / 10 + "rem";
+          this.style.height = cellH / 10 + "rem";
+          this.style.left = cellX / 10 + "rem";
+          this.style.top = cellY / 10 + "rem";
+        }
+
+        function handleTouchMove(e) {
+          e.preventDefault();
+          const moveX = e.touches[0].clientX,
+            moveY = e.touches[0].clientY;
+          cellX = moveX - mouseX;
+          cellY = moveY - mouseY;
+          this.style.left = cellX / 10 + "rem";
+          this.style.top = cellY / 10 + "rem";
+        }
+
+        function handleTouchEnd(e) {
+          // 顶部放置图形的长宽
+          const blankWidth = oBlanks[0].offsetWidth,
+            blankHeight = oBlanks[0].offsetHeight;
+          for (let i = 0; i < blackAreas.length; i++) {
+            if (resArr[i] !== undefined) {
+              continue;
+            }
+            let { startX, startY } = blackAreas[i];
+            // 距离要超过顶部放置图形的 50% ，提供吸附效果
+            if ( // 左上角为顶点，宽高超过盒子的50%
+              (cellX > startX &&
+                cellX < startX + blankWidth / 2 &&
+                cellY > startY &&
+                cellY < startY + blankHeight / 2) ||
+              (cellX + blankWidth > startX + blankWidth / 2 && // 右顶点
+                cellX + blankWidth < startX + blankWidth &&
+                cellY > startY &&
+                cellY < startY + blankWidth / 2)
+            ) {
+              setPosition(this, {
+                startX,
+                startY,
+              });
+              return;
+            }
+          }
+
+          const _index = Number(this.dataset.index),
+            charArea = charAreas[_index];
+          this.style.left = charArea.startX / 10 + "rem";
+          this.style.top = charArea.startY / 10 + "rem";
+        }
+
+        // 回弹其实就是在初始化的时候，保存每个盒子的位置
+        const getAreas = (domCollection, arrWrapper) => {
+          let startX = 0,
+            startY = 0,
+            oItem = null; // 将声明变量放在循环外面
+          for (let i = 0; i < domCollection.length; i++) {
+            oItem = domCollection[i];
+            startX = oItem.offsetLeft;
+            startY = oItem.offsetTop;
+            arrWrapper.push({
+              startX,
+              startY,
+            });
+          }
+        };
+
+        const formatCharsArr = () => {
+          let _arr = [];
+          idioms.forEach((item) => {
+            _arr = _arr.concat(item.split(""));
+          });
+          return _arr.sort(randomSort);
+        };
+
+        // 随机排序
+        const randomSort = (a, b) => {
+          return Math.random() > 0.5 ? -1 : 1;
+        };
+
+        const charCellTpl = (char, index) => {
+          return `
+            <div class="cell-item">
+              <div class="wrapper" data-index="${index}">${char}</div>
+            </div>
+            `;
+        };
+
+        const setPosition = (el, { startX, startY }) => {
+          el.style.left = startX / 10 + "rem";
+          el.style.top = startY / 10 + "rem";
+        };
+
+        init();
+      })();
+    </script>
+  </body>
+</html>

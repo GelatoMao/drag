@@ -1,0 +1,13 @@
+## 点击跟着鼠标走，松开回到原来位置
+- touchstart：求出 mouseX mouseY
+- touchmove: 根据 mouseX mouseY 求出移动过程中盒子的 cellX cellY
+- touchend
+
+
+## 回弹
+- 在初始化的时候，保存每个盒子的位置 getAreas 方法
+
+## 吸附
+- 两种情况：左上角为参考点 和 右上角为参考点
+
+![avatar](./drag.png)
